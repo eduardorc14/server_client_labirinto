@@ -16,7 +16,25 @@ void usage(int argc, char **argv) {
     exit(EXIT_FAILURE);                                       // Encerra o programa com erro
 }
 
+
 #define BUFSZ 1024 // Define o tamanho do buffer usado para enviar e receber mensagens
+
+
+void imprime_possible_moves(struct action action, const char **direcoes) {
+    int primeira = 1; // Flag para controlar a vírgula antes dos movimentos
+    printf("Possible moves:");
+
+    for (int i = 0; i < 100 && action.moves[i] != 0; i++) { // Itera até o final dos movimentos válidos
+        if (!primeira) {
+            printf(", "); // Adiciona a vírgula após o primeiro movimento
+        }
+        printf(" %s", direcoes[action.moves[i] - 1]); // Imprime a direção correspondente
+        primeira = 0; // Após o primeiro movimento, define a flag para 0
+    }
+
+    printf(".\n");
+}
+
 
 // Função principal
 int main(int argc, char **argv) {
@@ -50,31 +68,22 @@ int main(int argc, char **argv) {
     printf("connected to %s\n", addrstr); // Exibe o endereço do servidor conectado
 
     // Envio de mensagem para o servidor
-    char buf[BUFSZ];
-    memset(buf, 0, BUFSZ); // Limpa o buffer para evitar resíduos de dados
-    printf("mensagem> ");
-    fgets(buf, BUFSZ-1, stdin); // Lê a mensagem do usuário até BUFSZ-1 caracteres
-    size_t count = send(s, buf, strlen(buf)+1, 0); // Envia a mensagem ao servidor
-    if (count != strlen(buf)+1) {
+    printf("> ");
+    struct action action;
+    const char **direcoes = {"up", "right", "down", "left"}; // Mapeamento dos movimentos
+
+    scanf("%d", &action.type); // Lê a mensagem do usuário 
+
+    size_t count = send(s, &action, sizeof(action), 0); // Envia a mensagem ao servidor
+    if (count != sizeof(action)){
         logexit("send"); // Em caso de erro no envio, exibe mensagem e encerra o programa
     }
 
     // Recepção de resposta do servidor
-    memset(buf, 0, BUFSZ); // Limpa o buffer para receber a resposta do servidor
-    unsigned total = 0;
-    while (1) {
-        count = recv(s, buf + total, BUFSZ - total, 0); // Recebe dados do servidor
-        if (count == 0) {
-            // A conexão foi encerrada pelo servidor
-            break;
-        }
-        total += count; // Atualiza o total de bytes recebidos
-    }
+    count = recv(s, &action, sizeof(action), MSG_WAITALL);
+    imprime_possible_moves(action, direcoes); // imprime possíveis direções
+   
     close(s); // Fecha o socket após o término da comunicação
-
-    // Exibe o total de bytes recebidos e a resposta do servidor
-    printf("received %u bytes\n", total);
-    puts(buf); // Exibe o conteúdo da mensagem recebida
 
     exit(EXIT_SUCCESS); // Encerra o programa com sucesso
 }
