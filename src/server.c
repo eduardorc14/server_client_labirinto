@@ -159,15 +159,41 @@ int main(int argc, char **argv) {
         // Recebe dados do cliente pela estrutura action
         struct action action;
         size_t count = recv(csock, &action, sizeof(action), MSG_WAITALL); // Recebe dados do cliente
-         // Exibe a mensagem recebida
-        switch(action.type){
-            case 1:
-                printf("starting new game.\n");
-                break;
 
-        }
-        
         verificar_movimentos(labirinto, linhas, colunas, pos, &action);
+
+        switch (action.type) {
+            case ACTION_START:
+                printf("starting new game\n");
+                count = send(csock, &action, sizeof(action), 0); // Envia a resposta para o cliente
+                break;
+            case ACTION_MOVE:
+                printf("Player moved.\n");
+                break;
+            case ACTION_MAP:
+                printf("Sending map to client.\n");
+                break;
+            case ACTION_HINT:
+                printf("Providing hint to client.\n");
+                break;
+            case ACTION_UPDATE:
+                printf("Updating game state.\n");
+                break;
+            case ACTION_WIN:
+                printf("Player won the game.\n");
+                break;
+            case ACTION_RESET:
+                printf("Game reset.\n");
+                break;
+            case ACTION_EXIT:
+                printf("Client exited the game.\n");
+                break;
+            default:
+                printf("Unknown action type: %d\n", action.type);
+        }       
+
+        
+        
 
         // Prepara e envia uma resposta ao cliente
         count = send(csock, &action, sizeof(action), 0); // Envia a resposta para o cliente

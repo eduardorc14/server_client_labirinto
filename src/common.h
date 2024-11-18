@@ -12,6 +12,26 @@ struct action {         // Estrutura da mensagem de comunicação entre o servid
     int board[10][10];
 };
 
+
+typedef enum {
+    ACTION_START = 0,
+    ACTION_MOVE,
+    ACTION_MAP,
+    ACTION_HINT,
+    ACTION_UPDATE,
+    ACTION_WIN,
+    ACTION_RESET,
+    ACTION_EXIT
+} ActionType;
+
+typedef enum {
+    up = 1,
+    right =2,
+    down = 3,
+    left = 4
+
+} MoveType;
+
 void logexit(const char *msg);
 
 int addrparse(const char *addrstr, const char *portstr,

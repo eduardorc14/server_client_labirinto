@@ -20,7 +20,7 @@ void usage(int argc, char **argv) {
 #define BUFSZ 1024 // Define o tamanho do buffer usado para enviar e receber mensagens
 
 
-void imprime_possible_moves(struct action action, const char **direcoes) {
+void imprime_possible_moves(struct action action, const char *direcoes[]) {
     int primeira = 1; // Flag para controlar a vírgula antes dos movimentos
     printf("Possible moves:");
 
@@ -33,6 +33,15 @@ void imprime_possible_moves(struct action action, const char **direcoes) {
     }
 
     printf(".\n");
+}
+
+// Função para mapear o input para o comando númerico
+void convert_string_enum(const char *strings[], struct action *action, const char *msg, int size){
+    for(int i = 0; i < size; i++){
+        if(strcmp(msg, strings[i]) == 0){
+            action->type = (ActionType)i;
+        }
+    }
 }
 
 
@@ -68,20 +77,41 @@ int main(int argc, char **argv) {
     printf("connected to %s\n", addrstr); // Exibe o endereço do servidor conectado
 
     // Envio de mensagem para o servidor
-    printf("> ");
+    
     struct action action;
-    const char **direcoes = {"up", "right", "down", "left"}; // Mapeamento dos movimentos
+    const char *direcoes[] = {"up", "right", "down", "left"}; // Mapeamento dos movimentos
+    const char *action_strings[] = {                          // Mapaeamentos dos comandos do jogador
+        "start",
+        "move",
+        "map",
+        "hint",
+        "update",
+        "win",
+        "reset",
+        "exit"
+    };
 
-    scanf("%d", &action.type); // Lê a mensagem do usuário 
+    char msg[20];
 
-    size_t count = send(s, &action, sizeof(action), 0); // Envia a mensagem ao servidor
-    if (count != sizeof(action)){
-        logexit("send"); // Em caso de erro no envio, exibe mensagem e encerra o programa
+    size_t count;
+
+    while(1){
+        printf("> ");
+        scanf("%s", msg); // Lê a mensagem do usuário 
+
+        convert_string_enum(action_strings, &action, msg, sizeof(action_strings) / sizeof(action_strings[0]));
+
+
+        count = send(s, &action, sizeof(action), 0); // Envia a mensagem ao servidor
+        if (count != sizeof(action)){
+            logexit("send"); // Em caso de erro no envio, exibe mensagem e encerra o programa
+        }
+
+        // Recepção de resposta do servidor
+        count = recv(s, &action, sizeof(action), MSG_WAITALL);
+        imprime_possible_moves(action, direcoes); // imprime possíveis direções
+        memset(msg, 0, sizeof(msg));
     }
-
-    // Recepção de resposta do servidor
-    count = recv(s, &action, sizeof(action), MSG_WAITALL);
-    imprime_possible_moves(action, direcoes); // imprime possíveis direções
    
     close(s); // Fecha o socket após o término da comunicação
 
