@@ -12,6 +12,14 @@ struct action {         // Estrutura da mensagem de comunicação entre o servid
     int board[10][10];
 };
 
+typedef struct {
+    int linhas;
+    int colunas;
+    int **labirinto_completo;
+    int **labirinto_descoberto;
+    int jogador_x;
+    int jogador_y;
+} Labirinto;
 
 typedef enum {
     ACTION_START = 0,
@@ -42,12 +50,12 @@ void addrtostr(const struct sockaddr *addr, char *str, size_t strsize);
 int server_sockaddr_init(const char *proto, const char *portstr,
                          struct sockaddr_storage *storage);
 
-void contar_dimensoes(FILE *file, int *linhas, int *colunas);
+void contar_dimensoes(FILE *file, Labirinto *labirinto);
 
-int **alocar_matriz(int linhas, int colunas);
+void alocar_matriz(Labirinto *labirinto);
 
-void preencher_matriz(FILE *file, int **matriz, int linhas, int colunas);
+void preencher_matriz(FILE *file,Labirinto *labirinto);
 
-void exibir_matriz(int **labirinto, int linhas, int colunas);
+void exibir_matriz(Labirinto *labirinto);
 
-void liberar_matriz(int **matriz, int linhas);
+void liberar_matriz(Labirinto *labirinto);

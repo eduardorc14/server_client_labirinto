@@ -1,9 +1,12 @@
+#include "common.h" // Header que provavelmente contém funções utilitárias, como logexit
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <arpa/inet.h>
+
+
 
 void logexit(const char *msg) {
 	perror(msg);
@@ -103,53 +106,52 @@ int server_sockaddr_init(const char *proto, const char *portstr,
 
 
 // Função para contar linhas e colunas do arquivo
-void contar_dimensoes(FILE *file, int *linhas, int *colunas) {
-    *linhas = 0;
-    *colunas = 0;
+void contar_dimensoes(FILE *file, Labirinto *labirinto) {
+    labirinto->linhas = 0;
+    labirinto->colunas = 0;
     int temp_colunas = 0;
     int valor;
 
     while (fscanf(file, "%d", &valor) == 1) {
         temp_colunas++;
         if (fgetc(file) == '\n') { // Fim da linha encontrado
-            (*linhas)++;
-            if (*colunas == 0) { // Define as colunas apenas na primeira linha
-                *colunas = temp_colunas;
-            } else if (temp_colunas != *colunas) {
-                fprintf(stderr, "Erro: número irregular de colunas na linha %d\n", *linhas + 1);
+            labirinto->linhas++;
+            if (labirinto->colunas == 0) { // Define as colunas apenas na primeira linha
+                labirinto->colunas= temp_colunas;
+            } else if (temp_colunas != labirinto->colunas) {
+                fprintf(stderr, "Erro: número irregular de colunas na linha %d\n", labirinto->linhas + 1);
                 exit(EXIT_FAILURE);
             }
             temp_colunas = 0; // Reinicia a contagem para a próxima linha
         }
     }
     if (temp_colunas > 0) {
-        (*linhas)++; // Conta a última linha, se não terminar com '\n'
+        labirinto->linhas++; // Conta a última linha, se não terminar com '\n'
     }
     rewind(file); // Volta o ponteiro do arquivo para o início
 }
 
 // Função para alocar uma matriz de inteiros
-int **alocar_matriz(int linhas, int colunas) {
-    int **matriz = (int **)malloc(linhas * sizeof(int *));
-    if (matriz == NULL) {
-        perror("Erro ao alocar memória para as linhas");
+void alocar_matriz(Labirinto *labirinto) {
+    labirinto->labirinto_completo = (int **)malloc(labirinto->linhas * sizeof(int *));
+    if (labirinto->labirinto_completo == NULL) {
+        perror("Erro ao alocar memória para as labirinto->linhas");
         exit(EXIT_FAILURE);
     }
-    for (int i = 0; i < linhas; i++) {
-        matriz[i] = (int *)malloc(colunas * sizeof(int));
-        if (matriz[i] == NULL) {
-            perror("Erro ao alocar memória para as colunas");
+    for (int i = 0; i < labirinto->linhas; i++) {
+        labirinto->labirinto_completo[i] = (int *)malloc(labirinto->colunas * sizeof(int));
+        if (labirinto->labirinto_completo[i] == NULL) {
+            perror("Erro ao alocar memória para as labirinto->colunas");
             exit(EXIT_FAILURE);
         }
     }
-    return matriz;
 }
 
 // Função para preencher a matriz com os dados do arquivo
-void preencher_matriz(FILE *file, int **matriz, int linhas, int colunas) {
-    for (int i = 0; i < linhas; i++) {
-        for (int j = 0; j < colunas; j++) {
-            if (fscanf(file, "%d", &matriz[i][j]) != 1) {
+void preencher_matriz(FILE *file,Labirinto *labirinto) {
+    for (int i = 0; i < labirinto->linhas; i++) {
+        for (int j = 0; j < labirinto->colunas; j++) {
+            if (fscanf(file, "%d", &labirinto->labirinto_completo[i][j]) != 1) {
                 fprintf(stderr, "Erro ao ler o valor na posição %d,%d\n", i, j);
                 exit(EXIT_FAILURE);
             }
@@ -158,11 +160,11 @@ void preencher_matriz(FILE *file, int **matriz, int linhas, int colunas) {
 }
 
 
-void exibir_matriz(int **labirinto, int linhas, int colunas){
-    printf("Labirinto (%d linhas x %d colunas):\n", linhas, colunas);
-    for (int i = 0; i < linhas; i++) {
-        for (int j = 0; j < colunas; j++) {
-            printf("%d ", labirinto[i][j]);
+void exibir_matriz(Labirinto *labirinto){
+    printf("Labirinto (%d linhas x %d colunas):\n", labirinto->linhas, labirinto->colunas);
+    for (int i = 0; i < labirinto->linhas; i++) {
+        for (int j = 0; j < labirinto->colunas; j++) {
+            printf("%d ", labirinto->labirinto_completo[i][j]);
         }
         printf("\n");
     }
@@ -170,9 +172,9 @@ void exibir_matriz(int **labirinto, int linhas, int colunas){
 
 
 // Função para liberar a memória da matriz
-void liberar_matriz(int **matriz, int linhas) {
-    for (int i = 0; i < linhas; i++) {
-        free(matriz[i]); // Libera cada linha
+void liberar_matriz(Labirinto *labirinto) {
+    for (int i = 0; i < labirinto->linhas; i++) {
+        free(labirinto->labirinto_completo[i]); // Libera cada linha
     }
-    free(matriz); // Libera o ponteiro principal
+    free(labirinto->labirinto_completo); // Libera o ponteiro principal
 }

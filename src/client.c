@@ -36,11 +36,18 @@ void imprime_possible_moves(struct action action, const char *direcoes[]) {
 }
 
 // Função para mapear o input para o comando númerico
-void convert_string_enum(const char *strings[], struct action *action, const char *msg, int size){
+int convert_string_enum(const char *strings[], const char *msg, int size){
     for(int i = 0; i < size; i++){
         if(strcmp(msg, strings[i]) == 0){
-            action->type = (ActionType)i;
+            return i;
         }
+    }
+    return -1;
+}
+
+void preenche_moves(struct action *action){
+    for(int i = 0; i < 100; i++){
+        action->moves[i] = 0;
     }
 }
 
@@ -99,8 +106,14 @@ int main(int argc, char **argv) {
         printf("> ");
         scanf("%s", msg); // Lê a mensagem do usuário 
 
-        convert_string_enum(action_strings, &action, msg, sizeof(action_strings) / sizeof(action_strings[0]));
+        action.type = convert_string_enum(action_strings, msg, sizeof(action_strings) / sizeof(action_strings[0]));
 
+        preenche_moves(&action);
+
+        action.moves[0] = convert_string_enum(direcoes, msg, sizeof(direcoes) / sizeof(direcoes[0])) + 1;
+        
+        printf("Moves: %d\n", action.moves[0]);
+        
 
         count = send(s, &action, sizeof(action), 0); // Envia a mensagem ao servidor
         if (count != sizeof(action)){
@@ -109,7 +122,9 @@ int main(int argc, char **argv) {
 
         // Recepção de resposta do servidor
         count = recv(s, &action, sizeof(action), MSG_WAITALL);
+        
         imprime_possible_moves(action, direcoes); // imprime possíveis direções
+
         memset(msg, 0, sizeof(msg));
     }
    
