@@ -134,13 +134,15 @@ void contar_dimensoes(FILE *file, Labirinto *labirinto) {
 // Função para alocar uma matriz de inteiros
 void alocar_matriz(Labirinto *labirinto) {
     labirinto->labirinto_completo = (int **)malloc(labirinto->linhas * sizeof(int *));
-    if (labirinto->labirinto_completo == NULL) {
+    labirinto->labirinto_descoberto = (int **)malloc(labirinto->linhas * sizeof(int *));
+    if (labirinto->labirinto_completo == NULL || labirinto->labirinto_descoberto == NULL) {
         perror("Erro ao alocar memória para as labirinto->linhas");
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < labirinto->linhas; i++) {
         labirinto->labirinto_completo[i] = (int *)malloc(labirinto->colunas * sizeof(int));
-        if (labirinto->labirinto_completo[i] == NULL) {
+        labirinto->labirinto_descoberto[i] = (int *)malloc(labirinto->colunas * sizeof(int));
+        if (labirinto->labirinto_completo[i] == NULL || labirinto->labirinto_descoberto[i] == NULL) {
             perror("Erro ao alocar memória para as labirinto->colunas");
             exit(EXIT_FAILURE);
         }
@@ -155,6 +157,7 @@ void preencher_matriz(FILE *file,Labirinto *labirinto) {
                 fprintf(stderr, "Erro ao ler o valor na posição %d,%d\n", i, j);
                 exit(EXIT_FAILURE);
             }
+            labirinto->labirinto_descoberto[i][j] = 4;
         }
     }
 }
@@ -175,6 +178,8 @@ void exibir_matriz(Labirinto *labirinto){
 void liberar_matriz(Labirinto *labirinto) {
     for (int i = 0; i < labirinto->linhas; i++) {
         free(labirinto->labirinto_completo[i]); // Libera cada linha
+        free(labirinto->labirinto_descoberto[i]);
     }
     free(labirinto->labirinto_completo); // Libera o ponteiro principal
+    free(labirinto->labirinto_descoberto);
 }

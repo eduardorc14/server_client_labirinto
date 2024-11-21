@@ -58,6 +58,69 @@ void verificar_movimentos(Labirinto *labirinto, struct action *action) {
     }
 }
 
+
+// Função para movimentar no tabuleiro
+int fazer_movimentos(Labirinto *labirinto, struct action *action){
+    int x = labirinto->jogador_x;
+    int y = labirinto->jogador_y;
+
+    int novo_x = x, novo_y = y;
+
+    printf("Move no Labirinto: %d\n", action->moves[0]);
+
+    switch (action->moves[0]) {
+        case 1: novo_x = x - 1; break; // Cima
+        case 2: novo_y = y + 1; break; // Direita
+        case 3: novo_x = x + 1; break; // Baixo
+        case 4: novo_y = y - 1; break; // Esquerda
+        default: return 0; // Movimento inválido
+    }
+
+    printf("Move: (%d,%d)\n", novo_x,novo_y);
+
+    if (labirinto->labirinto_completo[novo_x][novo_y] == 0) {
+        return 0; // Movimento inválido (muro)
+    }
+
+    if (labirinto->labirinto_completo[novo_x][novo_y] == 3) {
+        return 2; // Jogador chegou na saída
+    }
+
+
+
+    // Atualiza a posição
+    if(labirinto->labirinto_completo[x][y] != 2){
+        labirinto->labirinto_completo[x][y] = 1; // Marca a posição anterior como livre
+    }
+    labirinto->labirinto_completo[novo_x][novo_y] = 5; // Marca a nova posição como o jogador
+    labirinto->jogador_x = novo_x;
+    labirinto->jogador_y = novo_y;
+
+    // Atualiza o raio de visibilidade ao redor do jogador
+    for (int i = novo_x - 1; i <= novo_x + 1; i++) {
+        for (int j = novo_y - 1; j <= novo_y + 1; j++) {
+            // Verifica se a célula está dentro dos limites do labirinto
+            if (i >= 0 && i < labirinto->linhas && j >= 0 && j < labirinto->colunas) {
+                labirinto->labirinto_descoberto[i][j] = labirinto->labirinto_completo[i][j];
+            }
+        }
+    }
+
+    return 1; // Movimento bem-sucedido
+}
+void  map_descoberto(Labirinto *labirinto, struct action *action){
+    action->moves[9] = labirinto->linhas;
+    action->moves[10] = labirinto->colunas;
+
+    for(int i = 0; i < labirinto->linhas; i++){
+        for(int j = 0; j < labirinto->colunas; j++){
+            action->board[i][j] = labirinto->labirinto_descoberto[i][j];
+        }
+    }
+}
+
+
+
 // Função usage: exibe uma mensagem de uso e encerra o programa se os argumentos forem inválidos
 void usage(int argc, char **argv) {
     printf("usage: %s <v4|v6> <server port> <-i> <input/in.txt>\n", argv[0]); // Exibe a forma correta de executar o programa
@@ -132,73 +195,63 @@ int main(int argc, char **argv) {
 
     definir_entrada_labirinto(&labirinto);
 
-    //printf("Linhas: %d  Colunas: %d\n", pos.x, labirinto->jogador_y);
+    struct sockaddr_storage cstorage;               // Armazena o endereço do cliente
+    struct sockaddr *caddr = (struct sockaddr *)(&cstorage); // Converte para sockaddr
+    socklen_t caddrlen = sizeof(cstorage);
+
+    // Aceita uma nova conexão do cliente
+    int csock = accept(s, caddr, &caddrlen); // Cria um novo socket para comunicação com o cliente
+    if (csock == -1) {
+        logexit("accept"); // Em caso de erro, exibe mensagem e encerra o programa
+    }
+
+    // Exibe o endereço do cliente conectado
+    char caddrstr[BUFSZ];
+    addrtostr(caddr, caddrstr, BUFSZ); // Converte o endereço do cliente para string
+    printf("client connected\n"); // Exibe o endereço do cliente
 
     // Loop principal para aceitar e tratar conexões
     while (1) {
-        struct sockaddr_storage cstorage;               // Armazena o endereço do cliente
-        struct sockaddr *caddr = (struct sockaddr *)(&cstorage); // Converte para sockaddr
-        socklen_t caddrlen = sizeof(cstorage);
-
-        // Aceita uma nova conexão do cliente
-        int csock = accept(s, caddr, &caddrlen); // Cria um novo socket para comunicação com o cliente
-        if (csock == -1) {
-            logexit("accept"); // Em caso de erro, exibe mensagem e encerra o programa
-        }
-
-        // Exibe o endereço do cliente conectado
-        char caddrstr[BUFSZ];
-        addrtostr(caddr, caddrstr, BUFSZ); // Converte o endereço do cliente para string
-        printf("client connected\n"); // Exibe o endereço do cliente
-
         // Recebe dados do cliente pela estrutura action
         struct action action;
         size_t count = recv(csock, &action, sizeof(action), MSG_WAITALL); // Recebe dados do cliente
-
-        verificar_movimentos(&labirinto, &action);
+        if (count != sizeof(action)) {
+            logexit("recv");
+        }
+        printf("Recebido Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
 
         switch (action.type) {
             case ACTION_START:
                 printf("starting new game\n");
-
-                count = send(csock, &action, sizeof(action), 0); // Envia a resposta para o cliente
+                verificar_movimentos(&labirinto, &action);
                 break;
             case ACTION_MOVE:
                 printf("Player moved.\n");
+                fazer_movimentos(&labirinto, &action);
+                verificar_movimentos(&labirinto, &action);
                 break;
             case ACTION_MAP:
-                printf("Sending map to client.\n");
-                break;
-            case ACTION_HINT:
-                printf("Providing hint to client.\n");
-                break;
-            case ACTION_UPDATE:
-                printf("Updating game state.\n");
-                break;
-            case ACTION_WIN:
-                printf("Player won the game.\n");
-                break;
-            case ACTION_RESET:
-                printf("Game reset.\n");
+                printf("Map:\n");
+                map_descoberto(&labirinto, &action);
                 break;
             case ACTION_EXIT:
-                printf("Client exited the game.\n");
+                printf("client disconnected\n");
                 break;
             default:
                 printf("Unknown action type: %d\n", action.type);
-        }       
+        }  
 
-        
-        
 
-        // Prepara e envia uma resposta ao cliente
         count = send(csock, &action, sizeof(action), 0); // Envia a resposta para o cliente
         if (count != sizeof(action)) {
-            logexit("send"); // Em caso de erro ao enviar, exibe mensagem e encerra o programa
-        }
-        close(csock); // Fecha o socket da conexão com o cliente
+            logexit("send");
+        } 
+        printf("Enviado Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
     }
 
+
+
+    close(csock); // Fecha o socket da conexão com o cliente
     close(s);
     fclose(file);
     // Libera a memória e fecha o arquivo

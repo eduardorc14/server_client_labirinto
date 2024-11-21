@@ -52,6 +52,17 @@ void preenche_moves(struct action *action){
 }
 
 
+void imprimir_matriz_descoberta(struct action *action){
+    const char simbolos[] = {'#', '_', '>', 'X', '?', '+'}; // Mapeamento dos inteiros para caracteres
+
+    for (int i = 0; i < action->moves[9]; i++) {
+        for (int j = 0; j < action->moves[10]; j++) {
+            printf("%c ", simbolos[action->board[i][j]]);
+        }
+        printf("\n");
+    }
+}
+
 // Função principal
 int main(int argc, char **argv) {
     // Verifica se o número de argumentos é suficiente; se não, chama a função usage
@@ -107,24 +118,49 @@ int main(int argc, char **argv) {
         scanf("%s", msg); // Lê a mensagem do usuário 
 
         action.type = convert_string_enum(action_strings, msg, sizeof(action_strings) / sizeof(action_strings[0]));
-
+        if (action.type == -1) {
+            action.type = 1;
+        }
         preenche_moves(&action);
 
         action.moves[0] = convert_string_enum(direcoes, msg, sizeof(direcoes) / sizeof(direcoes[0])) + 1;
         
-        printf("Moves: %d\n", action.moves[0]);
         
 
-        count = send(s, &action, sizeof(action), 0); // Envia a mensagem ao servidor
-        if (count != sizeof(action)){
-            logexit("send"); // Em caso de erro no envio, exibe mensagem e encerra o programa
+        // Envia a mensagem ao servidor
+        count = send(s, &action, sizeof(action), 0); 
+        if (count != sizeof(action)) {
+            logexit("send");
         }
+        printf("Enviado Cliente: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
 
         // Recepção de resposta do servidor
         count = recv(s, &action, sizeof(action), MSG_WAITALL);
-        
-        imprime_possible_moves(action, direcoes); // imprime possíveis direções
+        if (count != sizeof(action)) {
+            logexit("recv");
+        }
+        printf("Recebido Cliente: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
 
+        switch(action.type){
+            case ACTION_START:
+                imprime_possible_moves(action, direcoes); // imprime possíveis direções
+                break;
+            case ACTION_MOVE:
+                imprime_possible_moves(action, direcoes); // imprime possíveis direções
+                break;
+            case ACTION_MAP:
+                imprimir_matriz_descoberta(&action);
+                break;
+            case ACTION_EXIT:
+                close(s);
+                break;
+            default:
+                printf("Unknown action type: %d\n", action.type);
+        }
+        
+           
+        
+        //limpa o buffer de mensagem
         memset(msg, 0, sizeof(msg));
     }
    
