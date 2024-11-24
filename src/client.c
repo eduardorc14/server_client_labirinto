@@ -20,14 +20,17 @@ void usage(int argc, char **argv) {
 #define BUFSZ 1024 // Define o tamanho do buffer usado para enviar e receber mensagens
 
 
-void imprime_possible_moves(struct action action, const char *direcoes[]) {
+void imprime_possible_moves(struct action action, const char *direcoes[], char *possible_moves[]) {
     int primeira = 1; // Flag para controlar a vírgula antes dos movimentos
-    printf("Possible moves:");
+    if(action.type != ACTION_HINT){
+        printf("Possible moves:");
+    }
 
     for (int i = 0; i < 100 && action.moves[i] != 0; i++) { // Itera até o final dos movimentos válidos
         if (!primeira) {
             printf(", "); // Adiciona a vírgula após o primeiro movimento
         }
+        possible_moves[i] = (char *)direcoes[action.moves[i] - 1];
         printf(" %s", direcoes[action.moves[i] - 1]); // Imprime a direção correspondente
         primeira = 0; // Após o primeiro movimento, define a flag para 0
     }
@@ -35,15 +38,47 @@ void imprime_possible_moves(struct action action, const char *direcoes[]) {
     printf(".\n");
 }
 
-// Função para mapear o input para o comando númerico
-int convert_string_enum(const char *strings[], const char *msg, int size){
-    for(int i = 0; i < size; i++){
-        if(strcmp(msg, strings[i]) == 0){
-            return i;
+// Função para verificar a entrada de acordo com os movimentos possíveis
+int verificar_possible(struct action action, char *possible_moves[], char *msg){
+    for (int i = 0; i < 100 && action.moves[i] != 0; i++){
+        if(strcmp(msg, possible_moves[i]) == 0){
+            return 1;
         }
     }
-    return -1;
+    return 0;
 }
+
+
+int verificar_reset_exit(const char *win_moves[], const char *msg){
+    for(int i = 0; i < 2; i++){
+        if(strcmp(msg, win_moves[i]) == 0){
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
+// Função para verificar se a entrada é um comando de movimento
+int is_movement_command(const char *msg, const char *direcoes[], int size) {
+    for (int i = 0; i < size; i++) {
+        if (strcmp(msg, direcoes[i]) == 0) {
+            return i + 1; // Retorna o índice ajustado para o enum (1-based)
+        }
+    }
+    return 0; // Não é comando de movimento
+}
+
+// Função para processar comandos gerais
+int process_game_command(const char *msg, const char *action_strings[], int size) {
+    for (int i = 0; i < size; i++) {
+        if (strcmp(msg, action_strings[i]) == 0) {
+            return i; // Retorna o índice correspondente ao comando
+        }
+    }
+    return -1; // Comando não encontrado
+}
+
 
 void preenche_moves(struct action *action){
     for(int i = 0; i < 100; i++){
@@ -54,10 +89,11 @@ void preenche_moves(struct action *action){
 
 void imprimir_matriz_descoberta(struct action *action){
     const char simbolos[] = {'#', '_', '>', 'X', '?', '+'}; // Mapeamento dos inteiros para caracteres
+    printf("Labirinto Descoberto!\n");
 
     for (int i = 0; i < action->moves[9]; i++) {
         for (int j = 0; j < action->moves[10]; j++) {
-            printf("%c ", simbolos[action->board[i][j]]);
+            printf("%c\t ", simbolos[action->board[i][j]]);
         }
         printf("\n");
     }
@@ -109,24 +145,60 @@ int main(int argc, char **argv) {
         "exit"
     };
 
+    char *possible_moves[4];
+    const char *win_moves[] = {"exit", "reset"};
+
     char msg[20];
 
     size_t count;
+    int controle = 1;
 
-    while(1){
+    int game_started = 0;
+
+    int move_index = 0;
+    while(controle == 1){
         printf("> ");
         scanf("%s", msg); // Lê a mensagem do usuário 
 
-        action.type = convert_string_enum(action_strings, msg, sizeof(action_strings) / sizeof(action_strings[0]));
-        if (action.type == -1) {
-            action.type = 1;
+        // Verifica se o jogo já foi iniciado
+        if (!game_started && strcmp(msg, "start") != 0) {
+            printf("error: start the game first\n");
+            continue;
         }
-        preenche_moves(&action);
 
-        action.moves[0] = convert_string_enum(direcoes, msg, sizeof(direcoes) / sizeof(direcoes[0])) + 1;
-        
-        
-
+        if(game_started && strcmp(msg, "start") == 0){
+            printf("error: game already started\n");
+            continue;
+        }
+        // Após vencer o jogo possíveis comandos são exit e reset
+        if(action.type == ACTION_WIN && game_started){
+            if(verificar_reset_exit(win_moves, msg) != 1){
+                printf("error: command exit or reset\n");
+                continue;
+            }
+        }
+        printf("%d\n", action.type);
+        // Verifica se é um comando de movimento
+        move_index = is_movement_command(msg, direcoes, 4);
+        if (move_index) {
+            if (verificar_possible(action, possible_moves, msg)) {
+                preenche_moves(&action);
+                action.type = ACTION_MOVE;
+                action.moves[0] = move_index;
+            } else {
+                printf("error: you cannot go this way\n");
+                continue;
+            }
+        } else {
+            // Trata comandos gerais
+            action.type = process_game_command(msg, action_strings, 8);
+            if (action.type == -1) {
+                printf("error: command not found\n");
+                continue;
+            }
+        }
+        // Verifica se o movimento e possível
+        printf("%d\n", action.type);
         // Envia a mensagem ao servidor
         count = send(s, &action, sizeof(action), 0); 
         if (count != sizeof(action)) {
@@ -143,19 +215,30 @@ int main(int argc, char **argv) {
 
         switch(action.type){
             case ACTION_START:
-                imprime_possible_moves(action, direcoes); // imprime possíveis direções
+                game_started = 1;
+                imprime_possible_moves(action, direcoes, possible_moves); // imprime possíveis direções
                 break;
             case ACTION_MOVE:
-                imprime_possible_moves(action, direcoes); // imprime possíveis direções
+                imprime_possible_moves(action, direcoes, possible_moves); // imprime possíveis direções
                 break;
             case ACTION_MAP:
                 imprimir_matriz_descoberta(&action);
                 break;
-            case ACTION_EXIT:
-                close(s);
+            case ACTION_HINT:
+                printf("Hint:");
+                imprime_possible_moves(action, direcoes, possible_moves);
                 break;
-            default:
-                printf("Unknown action type: %d\n", action.type);
+            case ACTION_WIN:
+                printf("You escaped!\n");
+                imprimir_matriz_descoberta(&action);
+                break;
+            case ACTION_RESET:
+                imprime_possible_moves(action, direcoes,possible_moves); // imprime possíveis direções
+                controle = 0;
+                break;
+            case ACTION_EXIT:
+                controle = 0;
+                break;
         }
         
            

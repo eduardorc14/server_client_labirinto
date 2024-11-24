@@ -167,7 +167,7 @@ void exibir_matriz(Labirinto *labirinto){
     printf("Labirinto (%d linhas x %d colunas):\n", labirinto->linhas, labirinto->colunas);
     for (int i = 0; i < labirinto->linhas; i++) {
         for (int j = 0; j < labirinto->colunas; j++) {
-            printf("%d ", labirinto->labirinto_completo[i][j]);
+            printf("%d\t ", labirinto->labirinto_completo[i][j]);
         }
         printf("\n");
     }

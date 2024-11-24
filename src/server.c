@@ -90,9 +90,9 @@ int fazer_movimentos(Labirinto *labirinto, struct action *action){
 
     // Atualiza a posição
     if(labirinto->labirinto_completo[x][y] != 2){
-        labirinto->labirinto_completo[x][y] = 1; // Marca a posição anterior como livre
+        labirinto->labirinto_descoberto[x][y] = 1; // Marca a posição anterior como livre
     }
-    labirinto->labirinto_completo[novo_x][novo_y] = 5; // Marca a nova posição como o jogador
+    labirinto->labirinto_descoberto[novo_x][novo_y] = 5; // Marca a nova posição como o jogador
     labirinto->jogador_x = novo_x;
     labirinto->jogador_y = novo_y;
 
@@ -114,11 +114,79 @@ void  map_descoberto(Labirinto *labirinto, struct action *action){
 
     for(int i = 0; i < labirinto->linhas; i++){
         for(int j = 0; j < labirinto->colunas; j++){
-            action->board[i][j] = labirinto->labirinto_descoberto[i][j];
+            if(action->type != 5){
+               action->board[i][j] = labirinto->labirinto_descoberto[i][j]; 
+            }
+            else{
+                action->board[i][j] = labirinto->labirinto_completo[i][j];
+            }
         }
     }
 }
 
+
+void resetar_game(Labirinto *labirinto){
+
+    for(int i = 0; i < labirinto->linhas; i++){
+        for(int j = 0; j < labirinto->colunas; j++){
+            labirinto->labirinto_descoberto[i][j] = 4;
+        }
+    }
+}
+
+
+// Definir caminhos para chegar a saída
+void regra_mao_direita(Labirinto *labirinto, struct action *action) {
+    int movimentos[4][2] = {
+        {-1, 0}, // Cima
+        {0, 1},  // Direita
+        {1, 0},  // Baixo
+        {0, -1}  // Esquerda
+    };
+
+    int direcao_atual = 1; // Começa virado para a direita
+    int x = labirinto->jogador_x;
+    int y = labirinto->jogador_y;
+    int index = 0;
+
+    while (labirinto->labirinto_completo[x][y] != 3) { // Enquanto não estiver na saída
+        int nova_direcao = (direcao_atual + 1) % 4; // Tenta virar à direita
+        int novo_x = x + movimentos[nova_direcao][0];
+        int novo_y = y + movimentos[nova_direcao][1];
+
+        if (novo_x >= 0 && novo_x < labirinto->linhas &&
+            novo_y >= 0 && novo_y < labirinto->colunas &&
+            (labirinto->labirinto_completo[novo_x][novo_y] == 1 || 
+             labirinto->labirinto_completo[novo_x][novo_y] == 3)) {
+            // Vira à direita e anda
+            x = novo_x;
+            y = novo_y;
+            direcao_atual = nova_direcao;
+            action->moves[index++] = nova_direcao + 1; // Salva o movimento (1 = cima, 2 = direita, etc.)
+        } else {
+            // Tenta seguir em frente
+            novo_x = x + movimentos[direcao_atual][0];
+            novo_y = y + movimentos[direcao_atual][1];
+
+            if (novo_x >= 0 && novo_x < labirinto->linhas &&
+                novo_y >= 0 && novo_y < labirinto->colunas &&
+                (labirinto->labirinto_completo[novo_x][novo_y] == 1 || 
+                 labirinto->labirinto_completo[novo_x][novo_y] == 3)) {
+                x = novo_x;
+                y = novo_y;
+                action->moves[index++] = direcao_atual + 1;
+            } else {
+                // Vira à esquerda
+                direcao_atual = (direcao_atual + 3) % 4; // Rotação à esquerda
+            }
+        }
+    }
+
+    // Completa o vetor com 0's
+    for (int i = index; i < 100; i++) {
+        action->moves[i] = 0;
+    }
+}
 
 
 // Função usage: exibe uma mensagem de uso e encerra o programa se os argumentos forem inválidos
@@ -153,8 +221,7 @@ int main(int argc, char **argv) {
     // Segunda leitura para preencher a matriz com os dados do arquivo
     preencher_matriz(file,&labirinto);
 
-    // Exibe a matriz
-    exibir_matriz(&labirinto);
+
 
     // Inicializa o endereço do servidor
     struct sockaddr_storage storage; // Estrutura para armazenar o endereço
@@ -195,63 +262,86 @@ int main(int argc, char **argv) {
 
     definir_entrada_labirinto(&labirinto);
 
-    struct sockaddr_storage cstorage;               // Armazena o endereço do cliente
-    struct sockaddr *caddr = (struct sockaddr *)(&cstorage); // Converte para sockaddr
-    socklen_t caddrlen = sizeof(cstorage);
+    while(1){
+        // Exibe a matriz
+        exibir_matriz(&labirinto);
+        struct sockaddr_storage cstorage;               // Armazena o endereço do cliente
+        struct sockaddr *caddr = (struct sockaddr *)(&cstorage); // Converte para sockaddr
+        socklen_t caddrlen = sizeof(cstorage);
 
-    // Aceita uma nova conexão do cliente
-    int csock = accept(s, caddr, &caddrlen); // Cria um novo socket para comunicação com o cliente
-    if (csock == -1) {
-        logexit("accept"); // Em caso de erro, exibe mensagem e encerra o programa
-    }
-
-    // Exibe o endereço do cliente conectado
-    char caddrstr[BUFSZ];
-    addrtostr(caddr, caddrstr, BUFSZ); // Converte o endereço do cliente para string
-    printf("client connected\n"); // Exibe o endereço do cliente
-
-    // Loop principal para aceitar e tratar conexões
-    while (1) {
-        // Recebe dados do cliente pela estrutura action
-        struct action action;
-        size_t count = recv(csock, &action, sizeof(action), MSG_WAITALL); // Recebe dados do cliente
-        if (count != sizeof(action)) {
-            logexit("recv");
+        // Aceita uma nova conexão do cliente
+        int csock = accept(s, caddr, &caddrlen); // Cria um novo socket para comunicação com o cliente
+        if (csock == -1) {
+            logexit("accept"); // Em caso de erro, exibe mensagem e encerra o programa
         }
-        printf("Recebido Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
 
-        switch (action.type) {
-            case ACTION_START:
-                printf("starting new game\n");
-                verificar_movimentos(&labirinto, &action);
-                break;
-            case ACTION_MOVE:
-                printf("Player moved.\n");
-                fazer_movimentos(&labirinto, &action);
-                verificar_movimentos(&labirinto, &action);
-                break;
-            case ACTION_MAP:
-                printf("Map:\n");
-                map_descoberto(&labirinto, &action);
-                break;
-            case ACTION_EXIT:
-                printf("client disconnected\n");
-                break;
-            default:
-                printf("Unknown action type: %d\n", action.type);
-        }  
+        // Exibe o endereço do cliente conectado
+        char caddrstr[BUFSZ];
+        addrtostr(caddr, caddrstr, BUFSZ); // Converte o endereço do cliente para string
+        printf("client connected\n"); // Exibe o endereço do cliente
+
+        // Loop principal para aceitar e tratar conexões
+        while (1) {
+            // Recebe dados do cliente pela estrutura action
+            struct action action;
+            size_t count = recv(csock, &action, sizeof(action), MSG_WAITALL); // Recebe dados do cliente
+            if (count != sizeof(action)) {
+                logexit("recv");
+            }
+            printf("Recebido Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
+
+            switch (action.type) {
+                case ACTION_START:
+                    printf("starting new game\n");
+                    verificar_movimentos(&labirinto, &action);
+                    break;
+                case ACTION_MOVE:
+                    printf("Player moved.\n");
+                    if(fazer_movimentos(&labirinto, &action) == 2){
+                        printf("Win!\n");
+                        action.type = 5;
+                        map_descoberto(&labirinto, &action);
+                    }
+                    else{
+                        verificar_movimentos(&labirinto, &action);
+                    }
+                    break;
+                case ACTION_MAP:
+                    printf("Map:\n");
+                    map_descoberto(&labirinto, &action);
+                    break;
+                case ACTION_HINT:
+                    regra_mao_direita(&labirinto, &action);
+                    break;
+                case ACTION_RESET:
+                    resetar_game(&labirinto);
+                    definir_entrada_labirinto(&labirinto);
+                    verificar_movimentos(&labirinto, &action);
+                    printf("starting new game\n");
+                    break;
+                case ACTION_EXIT:
+                    resetar_game(&labirinto);
+                    definir_entrada_labirinto(&labirinto);
+                    verificar_movimentos(&labirinto, &action);
+                    printf("client disconnected\n");
+                    close(csock); // Fecha o socket da conexão com o cliente
+                    goto next_client; // Sai do loop interno para aceitar outro cliente
+                    break;
+            }  
 
 
-        count = send(csock, &action, sizeof(action), 0); // Envia a resposta para o cliente
-        if (count != sizeof(action)) {
-            logexit("send");
-        } 
-        printf("Enviado Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
+            count = send(csock, &action, sizeof(action), 0); // Envia a resposta para o cliente
+            if (count != sizeof(action)) {
+                logexit("send");
+            } 
+            printf("Enviado Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
+        }
+
+        next_client:
+        continue;
     }
 
-
-
-    close(csock); // Fecha o socket da conexão com o cliente
+    
     close(s);
     fclose(file);
     // Libera a memória e fecha o arquivo
