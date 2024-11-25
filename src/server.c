@@ -17,6 +17,8 @@ int definir_entrada_labirinto(Labirinto *labirinto){
             if(labirinto->labirinto_completo[i][j] == 2){
                 labirinto->jogador_x = i;
                 labirinto->jogador_y = j;
+                labirinto->input_x = i;
+                labirinto->input_y = j;
                 return 1;
             }
         }
@@ -66,7 +68,7 @@ int fazer_movimentos(Labirinto *labirinto, struct action *action){
 
     int novo_x = x, novo_y = y;
 
-    printf("Move no Labirinto: %d\n", action->moves[0]);
+    //printf("Move no Labirinto: %d\n", action->moves[0]);
 
     switch (action->moves[0]) {
         case 1: novo_x = x - 1; break; // Cima
@@ -76,7 +78,7 @@ int fazer_movimentos(Labirinto *labirinto, struct action *action){
         default: return 0; // Movimento inválido
     }
 
-    printf("Move: (%d,%d)\n", novo_x,novo_y);
+    //printf("Move: (%d,%d)\n", novo_x,novo_y);
 
     if (labirinto->labirinto_completo[novo_x][novo_y] == 0) {
         return 0; // Movimento inválido (muro)
@@ -86,15 +88,11 @@ int fazer_movimentos(Labirinto *labirinto, struct action *action){
         return 2; // Jogador chegou na saída
     }
 
-
-
-    // Atualiza a posição
-    if(labirinto->labirinto_completo[x][y] != 2){
-        labirinto->labirinto_descoberto[x][y] = 1; // Marca a posição anterior como livre
-    }
-    labirinto->labirinto_descoberto[novo_x][novo_y] = 5; // Marca a nova posição como o jogador
+    
+    labirinto->labirinto_descoberto[x][y] = 1;
     labirinto->jogador_x = novo_x;
     labirinto->jogador_y = novo_y;
+    
 
     // Atualiza o raio de visibilidade ao redor do jogador
     for (int i = novo_x - 1; i <= novo_x + 1; i++) {
@@ -102,6 +100,7 @@ int fazer_movimentos(Labirinto *labirinto, struct action *action){
             // Verifica se a célula está dentro dos limites do labirinto
             if (i >= 0 && i < labirinto->linhas && j >= 0 && j < labirinto->colunas) {
                 labirinto->labirinto_descoberto[i][j] = labirinto->labirinto_completo[i][j];
+                labirinto->labirinto_descoberto[novo_x][novo_y] = 5;
             }
         }
     }
@@ -122,6 +121,8 @@ void  map_descoberto(Labirinto *labirinto, struct action *action){
             }
         }
     }
+    //action->board[labirinto->input_x][labirinto->input_y] = 2;
+    
 }
 
 
@@ -130,6 +131,16 @@ void resetar_game(Labirinto *labirinto){
     for(int i = 0; i < labirinto->linhas; i++){
         for(int j = 0; j < labirinto->colunas; j++){
             labirinto->labirinto_descoberto[i][j] = 4;
+        }
+    }
+    
+    for (int i = labirinto->input_x - 1; i <= labirinto->input_x + 1; i++) {
+        for (int j = labirinto->input_y - 1; j <= labirinto->input_y + 1; j++) {
+            // Verifica se a célula está dentro dos limites do labirinto
+            if (i >= 0 && i < labirinto->linhas && j >= 0 && j < labirinto->colunas) {
+                labirinto->labirinto_descoberto[i][j] = labirinto->labirinto_completo[i][j];
+                labirinto->labirinto_descoberto[labirinto->input_x][labirinto->input_y] = 5;
+            }
         }
     }
 }
@@ -256,7 +267,7 @@ int main(int argc, char **argv) {
     // Exibe o endereço ao qual o servidor está associado e aguarda conexões
     char addrstr[BUFSZ];
     addrtostr(addr, addrstr, BUFSZ); // Converte o endereço para string
-    printf("bound to %s, waiting connections\n", addrstr); // Exibe a mensagem
+    //printf("bound to %s, waiting connections\n", addrstr); // Exibe a mensagem
 
     // Define a posição de entrada do labirinto
 
@@ -264,7 +275,7 @@ int main(int argc, char **argv) {
 
     while(1){
         // Exibe a matriz
-        exibir_matriz(&labirinto);
+        //exibir_matriz(&labirinto);
         struct sockaddr_storage cstorage;               // Armazena o endereço do cliente
         struct sockaddr *caddr = (struct sockaddr *)(&cstorage); // Converte para sockaddr
         socklen_t caddrlen = sizeof(cstorage);
@@ -288,7 +299,7 @@ int main(int argc, char **argv) {
             if (count != sizeof(action)) {
                 logexit("recv");
             }
-            printf("Recebido Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
+            
 
             switch (action.type) {
                 case ACTION_START:
@@ -296,9 +307,7 @@ int main(int argc, char **argv) {
                     verificar_movimentos(&labirinto, &action);
                     break;
                 case ACTION_MOVE:
-                    printf("Player moved.\n");
                     if(fazer_movimentos(&labirinto, &action) == 2){
-                        printf("Win!\n");
                         action.type = 5;
                         map_descoberto(&labirinto, &action);
                     }
@@ -307,7 +316,6 @@ int main(int argc, char **argv) {
                     }
                     break;
                 case ACTION_MAP:
-                    printf("Map:\n");
                     map_descoberto(&labirinto, &action);
                     break;
                 case ACTION_HINT:
@@ -334,7 +342,7 @@ int main(int argc, char **argv) {
             if (count != sizeof(action)) {
                 logexit("send");
             } 
-            printf("Enviado Servidor: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
+            
         }
 
         next_client:

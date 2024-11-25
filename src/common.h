@@ -19,6 +19,8 @@ typedef struct {
     int **labirinto_descoberto;
     int jogador_x;
     int jogador_y;
+    int input_x;
+    int input_y;
 } Labirinto;
 
 typedef enum {

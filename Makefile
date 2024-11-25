@@ -1,16 +1,30 @@
+# Diretórios
 SRC_DIR = src
-BUILD_DIR = build
+BIN_DIR = bin
 
-all: $(BUILD_DIR)/client $(BUILD_DIR)/server
+# Compilador e flags
+CC = gcc
+CFLAGS = -Wall -g
 
-$(BUILD_DIR)/client: $(SRC_DIR)/client.c $(BUILD_DIR)/common.o
-	gcc -Wall $(SRC_DIR)/client.c $(BUILD_DIR)/common.o -o $(BUILD_DIR)/client
+# Alvo padrão
+all: $(BIN_DIR)/client $(BIN_DIR)/server
 
-$(BUILD_DIR)/server: $(SRC_DIR)/server.c $(BUILD_DIR)/common.o
-	gcc -Wall $(SRC_DIR)/server.c $(BUILD_DIR)/common.o -o $(BUILD_DIR)/server
+# Binário do cliente
+$(BIN_DIR)/client: $(SRC_DIR)/client.c $(BIN_DIR)/common.o
+	$(CC) $(CFLAGS) $^ -o $@
 
-$(BUILD_DIR)/common.o: $(SRC_DIR)/common.c
-	gcc -Wall -c $(SRC_DIR)/common.c -o $(BUILD_DIR)/common.o
+# Binário do servidor
+$(BIN_DIR)/server: $(SRC_DIR)/server.c $(BIN_DIR)/common.o
+	$(CC) $(CFLAGS) $^ -o $@
 
+# Objeto comum
+$(BIN_DIR)/common.o: $(SRC_DIR)/common.c
+	mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Limpeza
 clean:
-	rm -rf $(BUILD_DIR)/*
+	rm -rf $(BIN_DIR)
+
+# PHONY para evitar conflitos com arquivos reais
+.PHONY: all clean

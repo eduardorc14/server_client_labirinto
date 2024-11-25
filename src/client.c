@@ -89,8 +89,7 @@ void preenche_moves(struct action *action){
 
 void imprimir_matriz_descoberta(struct action *action){
     const char simbolos[] = {'#', '_', '>', 'X', '?', '+'}; // Mapeamento dos inteiros para caracteres
-    printf("Labirinto Descoberto!\n");
-
+    
     for (int i = 0; i < action->moves[9]; i++) {
         for (int j = 0; j < action->moves[10]; j++) {
             printf("%c\t ", simbolos[action->board[i][j]]);
@@ -128,7 +127,7 @@ int main(int argc, char **argv) {
     // Exibe uma mensagem de conexão estabelecida com o endereço do servidor
     char addrstr[BUFSZ];
     addrtostr(addr, addrstr, BUFSZ); // Converte o endereço do servidor para string
-    printf("connected to %s\n", addrstr); // Exibe o endereço do servidor conectado
+    //printf("connected to %s\n", addrstr); // Exibe o endereço do servidor conectado
 
     // Envio de mensagem para o servidor
     
@@ -177,7 +176,7 @@ int main(int argc, char **argv) {
                 continue;
             }
         }
-        printf("%d\n", action.type);
+        
         // Verifica se é um comando de movimento
         move_index = is_movement_command(msg, direcoes, 4);
         if (move_index) {
@@ -197,21 +196,20 @@ int main(int argc, char **argv) {
                 continue;
             }
         }
-        // Verifica se o movimento e possível
-        printf("%d\n", action.type);
+
         // Envia a mensagem ao servidor
         count = send(s, &action, sizeof(action), 0); 
         if (count != sizeof(action)) {
             logexit("send");
         }
-        printf("Enviado Cliente: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
+        
 
         // Recepção de resposta do servidor
         count = recv(s, &action, sizeof(action), MSG_WAITALL);
         if (count != sizeof(action)) {
             logexit("recv");
         }
-        printf("Recebido Cliente: type=%d, moves[0]=%d\n", action.type, action.moves[0]);
+        
 
         switch(action.type){
             case ACTION_START:
@@ -234,7 +232,6 @@ int main(int argc, char **argv) {
                 break;
             case ACTION_RESET:
                 imprime_possible_moves(action, direcoes,possible_moves); // imprime possíveis direções
-                controle = 0;
                 break;
             case ACTION_EXIT:
                 controle = 0;
